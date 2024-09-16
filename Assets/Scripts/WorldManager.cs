@@ -5,18 +5,28 @@ using UnityEngine;
 public class WorldManager : MonoBehaviour
 {
     public int[,,] worldData;  // Your 3D array (fill it elsewhere)
-    public Vector3 blockSize = Vector3.one;  // Size of each block (can be changed)
+    public Material blockMaterial; 
 
+    private Vector3 blockSize = Vector3.one;  // Size of each block (can be changed)
     private MeshFilter meshFilter;
     private MeshCollider meshCollider;
+    private MeshRenderer meshRenderer;
     private const int CHUNKSIZE = 16;
+    private Dictionary<int, int> blockToTexture;
 
     void Start()
     {
         meshFilter = GetComponent<MeshFilter>();
         meshCollider = GetComponent<MeshCollider>();
+        meshRenderer = GetComponent<MeshRenderer>();
+        meshRenderer.material = blockMaterial;
+        blockToTexture = new Dictionary<int, int>();
+        // Skipping 0 since it's air
+        blockToTexture[1] = 15*64 + 0; // Dirt
+        blockToTexture[2] = 15*64 + 2; // Cobble
         PopulateWorldData();
         GenerateMesh();
+        
     }
     void PopulateWorldData(){
         worldData = new int[CHUNKSIZE,CHUNKSIZE,CHUNKSIZE];
@@ -24,6 +34,9 @@ public class WorldManager : MonoBehaviour
             for(int y=0; y < CHUNKSIZE; y++) {
                 for(int z=0; z < CHUNKSIZE; z++) {
                     if( y < 8){
+                        worldData[x,y,z] = 2;
+                    }
+                    if( y == 8){
                         worldData[x,y,z] = 1;
                     }
                 }
@@ -35,6 +48,7 @@ public class WorldManager : MonoBehaviour
     {
         List<Vector3> vertices = new List<Vector3>();
         List<int> triangles = new List<int>();
+        List<Vector2> uvs = new List<Vector2>();
 
         for (int x = 0; x < worldData.GetLength(0); x++)
         {
@@ -42,17 +56,18 @@ public class WorldManager : MonoBehaviour
             {
                 for (int z = 0; z < worldData.GetLength(2); z++)
                 {
-                    if (worldData[x, y, z] == 1)  // If the block is filled
+                    int blockId = worldData[x, y, z];
+                    if (blockId != 0)  // If the block is filled
                     {
                         Vector3 blockPosition = new Vector3(x, y, z);
 
                         // Check if the block has exposed sides, add faces for exposed sides
-                        if (IsAir(x, y + 1, z)) AddFace(vertices, triangles, blockPosition, Vector3.up);    // Top face
-                        if (IsAir(x, y - 1, z)) AddFace(vertices, triangles, blockPosition, Vector3.down);  // Bottom face
-                        if (IsAir(x + 1, y, z)) AddFace(vertices, triangles, blockPosition, Vector3.right); // Right face
-                        if (IsAir(x - 1, y, z)) AddFace(vertices, triangles, blockPosition, Vector3.left);  // Left face
-                        if (IsAir(x, y, z + 1)) AddFace(vertices, triangles, blockPosition, Vector3.forward); // Front face
-                        if (IsAir(x, y, z - 1)) AddFace(vertices, triangles, blockPosition, Vector3.back);   // Back face
+                        if (IsAir(x, y + 1, z)) AddFace(vertices, triangles, uvs, blockPosition, blockId, Vector3.up);    // Top face
+                        if (IsAir(x, y - 1, z)) AddFace(vertices, triangles, uvs, blockPosition, blockId, Vector3.down);  // Bottom face
+                        if (IsAir(x + 1, y, z)) AddFace(vertices, triangles, uvs, blockPosition, blockId, Vector3.right); // Right face
+                        if (IsAir(x - 1, y, z)) AddFace(vertices, triangles, uvs, blockPosition, blockId, Vector3.left);  // Left face
+                        if (IsAir(x, y, z + 1)) AddFace(vertices, triangles, uvs, blockPosition, blockId, Vector3.forward); // Front face
+                        if (IsAir(x, y, z - 1)) AddFace(vertices, triangles, uvs, blockPosition, blockId, Vector3.back);   // Back face
                     }
                 }
             }
@@ -61,6 +76,7 @@ public class WorldManager : MonoBehaviour
         Mesh mesh = new Mesh();
         mesh.vertices = vertices.ToArray();
         mesh.triangles = triangles.ToArray();
+        mesh.uv = uvs.ToArray();
         mesh.RecalculateNormals();
 
         meshFilter.mesh = mesh;
@@ -75,7 +91,12 @@ public class WorldManager : MonoBehaviour
         return worldData[x, y, z] == 0;
     }
 
-    void AddFace(List<Vector3> vertices, List<int> triangles, Vector3 blockPosition, Vector3 direction)
+    void AddFace(List<Vector3> vertices, 
+                 List<int> triangles, 
+                 List<Vector2> uvs, 
+                 Vector3 blockPosition, 
+                 int blockId, 
+                 Vector3 direction)
     {
         int vertexIndex = vertices.Count;
 
@@ -122,5 +143,36 @@ public class WorldManager : MonoBehaviour
         triangles.Add(vertexIndex);
         triangles.Add(vertexIndex + 2);
         triangles.Add(vertexIndex + 3);
+
+        AddUVs(blockId, uvs);
+    }
+
+    void AddUVs(int blockId, List<Vector2> uvs)
+    {
+        int blockTextureIndex = blockToTexture[blockId];
+        // Texture atlas dimensions
+        float atlasWidth = 1024f;
+        float atlasHeight = 512;
+        float tileSizeX = 16f / atlasWidth;   // Width of a single texture in UV space
+        float tileSizeY = 16f / atlasHeight;  // Height of a single texture in UV space
+
+        // Calculate the row and column based on the blockType index
+        int tilesPerRow = (int)(atlasWidth / 16f);  // How many textures fit horizontally
+        int row = blockTextureIndex / tilesPerRow;
+        int col = blockTextureIndex % tilesPerRow;
+
+        // Calculate the UV coordinates for the top-left corner of the texture
+        float uMin = col * tileSizeX;
+        float vMin = 1f - (row + 1) * tileSizeY;  // 1 minus (row + 1) because UV space goes from 0 to 1, top to bottom
+
+        // Define the UVs for one face of the block
+        Vector2[] uvFace = new Vector2[4];
+        uvFace[0] = new Vector2(uMin, vMin);                    // Bottom-left
+        uvFace[1] = new Vector2(uMin + tileSizeX, vMin);        // Bottom-right
+        uvFace[2] = new Vector2(uMin + tileSizeX, vMin + tileSizeY); // Top-right
+        uvFace[3] = new Vector2(uMin, vMin + tileSizeY);        // Top-left
+
+        // Add the UVs for this face
+        uvs.AddRange(uvFace);
     }
 }

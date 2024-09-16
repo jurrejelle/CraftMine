@@ -154,7 +154,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 0846beac7d9a1674ea3655b19e32f4a5, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  blockSize: {x: 1, y: 1, z: 1}
+  blockMaterial: {fileID: 2100000, guid: 66d7bf2cbdd66b24abf058493a740346, type: 2}
 --- !u!23 &701130781
 MeshRenderer:
   m_ObjectHideFlags: 0

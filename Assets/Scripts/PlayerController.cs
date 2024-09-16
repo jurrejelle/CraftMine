@@ -8,11 +8,13 @@ public class PlayerController : MonoBehaviour
     private CharacterController controller;
     private Vector3 playerVelocity;
     private bool groundedPlayer;
-    private float playerSpeed = 2.0f;
+    private float survivalWalkSpeed = 5.0f;
     private float jumpHeight = 1.0f;
-    private float flySpeed = 4.0f;
     private float gravityValue = -9.81f;
-    private float mouseSensitivity = 200f;
+
+    private float creativeWalkSpeed = 10.0f;
+    private float flySpeed = 4.0f;
+    private float mouseSensitivity = 500f;
 
     private string gameMode = "creative";
     private float xRotation = 0f;
@@ -56,7 +58,8 @@ public class PlayerController : MonoBehaviour
         Vector3 move = new Vector3(Input.GetAxis("Horizontal"), 0, Input.GetAxis("Vertical"));
         // Transform the movement direction from local space to world space based on the player's current rotation
         Vector3 transformedMove = transform.TransformDirection(move);
-        controller.Move(transformedMove * Time.deltaTime * playerSpeed);
+        float movementSpeed = gameMode == "creative" ? creativeWalkSpeed : survivalWalkSpeed;
+        controller.Move(transformedMove * Time.deltaTime * movementSpeed);
     }
 
     void Jump(){
@@ -72,7 +75,7 @@ public class PlayerController : MonoBehaviour
                 heightVelocity += Vector3.up;
             }
 
-            playerVelocity.y = heightVelocity.y;
+            playerVelocity.y = heightVelocity.y * flySpeed;
 
         } else if(gameMode == "survival") {
             groundedPlayer = controller.isGrounded;
@@ -87,7 +90,7 @@ public class PlayerController : MonoBehaviour
                 playerVelocity.y += Mathf.Sqrt(jumpHeight * -3.0f * gravityValue);
             }
 
-            playerVelocity.y += gravityValue * Time.deltaTime;
+            playerVelocity.y += gravityValue * Time.deltaTime; // TODO: maybe remove this deltatime bcs square???
         }
         controller.Move(playerVelocity * Time.deltaTime);
     }
