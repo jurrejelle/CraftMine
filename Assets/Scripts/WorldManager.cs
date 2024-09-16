@@ -133,10 +133,13 @@ public class WorldManager : MonoBehaviour
         triangles.Add(vertexIndex + 3);
 
         AddUVs(blockId, uvs);
+        AddUVs(blockId, uvs);
     }
 
     void AddUVs(int blockId, List<Vector2> uvs)
     {
+        // TODO: Multiple faces/directions per block
+
         int blockTextureIndex = blockToTexture[blockId];
         // Texture atlas dimensions
         float atlasWidth = 1024f;
