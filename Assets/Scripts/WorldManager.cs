@@ -42,6 +42,7 @@ public class WorldManager : MonoBehaviour
         }
 
         Mesh mesh = new Mesh();
+        mesh.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
         mesh.vertices = vertices.ToArray();
         mesh.triangles = triangles.ToArray();
         mesh.uv = uvs.ToArray();
@@ -53,7 +54,7 @@ public class WorldManager : MonoBehaviour
 
     void GenChunk(Chunk chunk, List<Vector3> vertices, List<int> triangles, List<Vector2> uvs){
         int[,,] chunkData = chunk.ChunkData;
-        Vector2Int chunkPos = chunk.ChunkPos;
+        Vector3Int chunkPos = chunk.ChunkPos;
         for (int x = 0; x < chunkData.GetLength(0); x++)
         {
             for (int y = 0; y < chunkData.GetLength(1); y++)
