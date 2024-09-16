@@ -4,15 +4,14 @@ using UnityEngine;
 
 public class WorldManager : MonoBehaviour
 {
-    public int[,,] worldData;  // Your 3D array (fill it elsewhere)
     public Material blockMaterial; 
 
     private Vector3 blockSize = Vector3.one;  // Size of each block (can be changed)
     private MeshFilter meshFilter;
     private MeshCollider meshCollider;
     private MeshRenderer meshRenderer;
-    private const int CHUNKSIZE = 16;
     private Dictionary<int, int> blockToTexture;
+    private World world;
 
     void Start()
     {
@@ -24,24 +23,11 @@ public class WorldManager : MonoBehaviour
         // Skipping 0 since it's air
         blockToTexture[1] = 15*64 + 0; // Dirt
         blockToTexture[2] = 15*64 + 2; // Cobble
-        PopulateWorldData();
+
+        world = new World();
+        world.initialWorldGen();
         GenerateMesh();
         
-    }
-    void PopulateWorldData(){
-        worldData = new int[CHUNKSIZE,CHUNKSIZE,CHUNKSIZE];
-        for(int x=0; x < CHUNKSIZE; x++) { 
-            for(int y=0; y < CHUNKSIZE; y++) {
-                for(int z=0; z < CHUNKSIZE; z++) {
-                    if( y < 8){
-                        worldData[x,y,z] = 2;
-                    }
-                    if( y == 8){
-                        worldData[x,y,z] = 1;
-                    }
-                }
-            }
-        }
     }
 
     void GenerateMesh()
@@ -49,28 +35,10 @@ public class WorldManager : MonoBehaviour
         List<Vector3> vertices = new List<Vector3>();
         List<int> triangles = new List<int>();
         List<Vector2> uvs = new List<Vector2>();
-
-        for (int x = 0; x < worldData.GetLength(0); x++)
+        // TODO: one chunk per object, keep in dict, only update right chunks?
+        foreach(Chunk chunk in world.chunks.Values)
         {
-            for (int y = 0; y < worldData.GetLength(1); y++)
-            {
-                for (int z = 0; z < worldData.GetLength(2); z++)
-                {
-                    int blockId = worldData[x, y, z];
-                    if (blockId != 0)  // If the block is filled
-                    {
-                        Vector3 blockPosition = new Vector3(x, y, z);
-
-                        // Check if the block has exposed sides, add faces for exposed sides
-                        if (IsAir(x, y + 1, z)) AddFace(vertices, triangles, uvs, blockPosition, blockId, Vector3.up);    // Top face
-                        if (IsAir(x, y - 1, z)) AddFace(vertices, triangles, uvs, blockPosition, blockId, Vector3.down);  // Bottom face
-                        if (IsAir(x + 1, y, z)) AddFace(vertices, triangles, uvs, blockPosition, blockId, Vector3.right); // Right face
-                        if (IsAir(x - 1, y, z)) AddFace(vertices, triangles, uvs, blockPosition, blockId, Vector3.left);  // Left face
-                        if (IsAir(x, y, z + 1)) AddFace(vertices, triangles, uvs, blockPosition, blockId, Vector3.forward); // Front face
-                        if (IsAir(x, y, z - 1)) AddFace(vertices, triangles, uvs, blockPosition, blockId, Vector3.back);   // Back face
-                    }
-                }
-            }
+            GenChunk(chunk, vertices, triangles, uvs);
         }
 
         Mesh mesh = new Mesh();
@@ -83,12 +51,31 @@ public class WorldManager : MonoBehaviour
         meshCollider.sharedMesh = mesh;  // Update the mesh collider
     }
 
-    bool IsAir(int x, int y, int z)
-    {
-        // Check if the block is out of bounds or marked as air (value == 0)
-        if (x < 0 || y < 0 || z < 0 || x >= worldData.GetLength(0) || y >= worldData.GetLength(1) || z >= worldData.GetLength(2))
-            return true;  // Treat out-of-bounds as air
-        return worldData[x, y, z] == 0;
+    void GenChunk(Chunk chunk, List<Vector3> vertices, List<int> triangles, List<Vector2> uvs){
+        int[,,] chunkData = chunk.ChunkData;
+        Vector2Int chunkPos = chunk.ChunkPos;
+        for (int x = 0; x < chunkData.GetLength(0); x++)
+        {
+            for (int y = 0; y < chunkData.GetLength(1); y++)
+            {
+                for (int z = 0; z < chunkData.GetLength(2); z++)
+                {
+                    int blockId = chunkData[x, y, z];
+                    if (blockId != 0)  // If the block is filled
+                    {
+                        Vector3 blockPosition = new Vector3(x, y, z) + World.ChunkPosToWorldPos(chunkPos);
+
+                        // Check if the block has exposed sides, add faces for exposed sides
+                        if (world.IsAir(chunkPos, x, y + 1, z)) AddFace(vertices, triangles, uvs, blockPosition, blockId, Vector3.up);    // Top face
+                        if (world.IsAir(chunkPos, x, y - 1, z)) AddFace(vertices, triangles, uvs, blockPosition, blockId, Vector3.down);  // Bottom face
+                        if (world.IsAir(chunkPos, x + 1, y, z)) AddFace(vertices, triangles, uvs, blockPosition, blockId, Vector3.right); // Right face
+                        if (world.IsAir(chunkPos, x - 1, y, z)) AddFace(vertices, triangles, uvs, blockPosition, blockId, Vector3.left);  // Left face
+                        if (world.IsAir(chunkPos, x, y, z + 1)) AddFace(vertices, triangles, uvs, blockPosition, blockId, Vector3.forward); // Front face
+                        if (world.IsAir(chunkPos, x, y, z - 1)) AddFace(vertices, triangles, uvs, blockPosition, blockId, Vector3.back);   // Back face
+                    }
+                }
+            }
+        }
     }
 
     void AddFace(List<Vector3> vertices, 
