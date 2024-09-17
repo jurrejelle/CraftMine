@@ -6,7 +6,11 @@ using UnityEngine;
 public class World {
     public Dictionary<Vector3Int,Chunk> chunks = new();
     public const int CHUNKSIZE = 16;
-    public const int WORLDSIZE = 8;
+    public const int WORLDSIZE = 4;
+    public WorldManager manager;
+    public World(WorldManager manager){
+        this.manager = manager;
+    }
     public void initialWorldGen(){
         for(int chunkX = -WORLDSIZE; chunkX <= WORLDSIZE; chunkX++){
             for(int chunkY = 0; chunkY <= 4; chunkY++){
@@ -32,9 +36,10 @@ public class World {
     }
 
     private void GenChunk(Vector3Int chunkPos){
-                Chunk currentChunk = new Chunk();
-                currentChunk.initialWorldGenNoise(chunkPos);
-
+                Chunk currentChunk = new Chunk(this, chunkPos);
+                currentChunk.InitialWorldGenNoise(chunkPos);
+                currentChunk.CreateObject();
+                currentChunk.UpdateChunk();
                 chunks[chunkPos] = currentChunk;
 
     }
@@ -54,7 +59,7 @@ public class World {
         if (worldPos.y < 0) return 0;
         Vector3Int chunkPos = WorldPosToChunkPos(worldPos);
         if (!chunks.ContainsKey(chunkPos)) return 0;
-        return chunks[chunkPos].getAbsolutePos(worldPos);
+        return chunks[chunkPos].GetAbsolutePos(worldPos);
     }
     public static int WorldPosToChunkPos(int coord){
         return (coord >= 0) ? (coord / 16) : ((coord + 1) / 16) - 1;
