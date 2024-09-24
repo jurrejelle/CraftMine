@@ -1,10 +1,12 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
+using UnityEditor.Experimental.GraphView;
 using UnityEngine;
 
 public class PlayerController : MonoBehaviour
 {
-    private Camera camera;
+    private Camera playerCamera;
     private CharacterController controller;
     private Vector3 playerVelocity;
     private bool groundedPlayer;
@@ -16,14 +18,14 @@ public class PlayerController : MonoBehaviour
     private float flySpeed = 4.0f;
     private float mouseSensitivity = 500f;
 
-    private string gameMode = "creative";
+    private string gameMode = "survival";
     private float xRotation = 0f;
     
     private void Start()
     {
         Cursor.lockState = CursorLockMode.Locked;
         controller = GetComponent<CharacterController>();
-        camera = GetComponentInChildren<Camera>();
+        playerCamera = GetComponentInChildren<Camera>();
     }
 
     // Update is called once per frame
@@ -36,6 +38,52 @@ public class PlayerController : MonoBehaviour
         Turn();
         Walk();
         Jump();
+        CheckGamemode();
+        DestroyBlock();
+        PlaceBlock();
+    }
+
+    void DestroyBlock(){
+        if(Input.GetButtonDown("Fire1")) {
+            // Create a ray that starts from the camera and points forward
+            Ray ray = new Ray(Camera.main.transform.position, Camera.main.transform.forward);
+            RaycastHit hit;
+
+            // Perform the raycast from the camera's position forward
+            if (Physics.Raycast(ray, out hit, 10f))
+            {
+                // Print the position where the ray hit
+                Vector3Int in_block = Vector3Int.FloorToInt(hit.point + 0.1f * Camera.main.transform.forward);
+                World world = WorldManager.GetManager().world;
+                Debug.Log($"Hit position inside block: {in_block}, type {world.GetBlock(in_block)}");
+                world.DestroyBlock(in_block);
+            }
+        }
+    }
+
+    void PlaceBlock(){
+        if(Input.GetButtonDown("Fire2")) {
+            // Create a ray that starts from the camera and points forward
+            Ray ray = new Ray(Camera.main.transform.position, Camera.main.transform.forward);
+            RaycastHit hit;
+
+            // Perform the raycast from the camera's position forward
+            if (Physics.Raycast(ray, out hit, 10f))
+            {
+                // Print the position where the ray hit
+                Vector3Int in_block = (hit.point - 0.1f * Camera.main.transform.forward).floor();
+                World world = WorldManager.GetManager().world;
+                Debug.Log($"Hit position inside block: {in_block}, type {world.GetBlock(in_block)}");
+                world.PlaceBlock(in_block, 3);
+            }
+        }
+
+    }
+
+    void CheckGamemode(){
+        if(Input.GetKeyDown(KeyCode.C)){
+            gameMode = gameMode == "survival" ? "creative" : "survival";
+        }
     }
 
     void Turn(){
@@ -51,7 +99,7 @@ public class PlayerController : MonoBehaviour
         xRotation = Mathf.Clamp(xRotation, -90f, 90f);  // Limit the up/down rotation to prevent over-rotation
 
         // Apply the rotation to the camera around the local X axis
-        camera.transform.localRotation = Quaternion.Euler(xRotation, 0f, 0f);
+        playerCamera.transform.localRotation = Quaternion.Euler(xRotation, 0f, 0f);
     }
     
     void Walk(){

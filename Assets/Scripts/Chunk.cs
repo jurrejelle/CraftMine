@@ -3,6 +3,7 @@ using System;
 using UnityEditor;
 using UnityEngine;
 using System.Collections.Generic;
+using UnityEditor.Experimental.GraphView;
 public class Chunk{
     private static Material material = null;
     public const int CHUNKSIZE = 16;
@@ -39,6 +40,20 @@ public class Chunk{
         UnityEngine.Object.Destroy(chunkObject);
 
     }
+
+    private int CreateBlockData(Vector3Int input){
+        if( input.y == 36){
+            return 1;
+        }
+        if( input.y < 36 && input.y >= 34){
+            return 2;
+        }
+        if( input.y < 34){
+            return 3;
+        }
+        return 0;
+
+    }
     public void InitialWorldGen(Vector3Int chunkPos){
         this.chunkPos = chunkPos;
         chunkData = new int[CHUNKSIZE,CHUNKSIZE,CHUNKSIZE];
@@ -46,12 +61,7 @@ public class Chunk{
             for(int y = 0; y < CHUNKSIZE; y++) {
                 for(int z = 0; z < CHUNKSIZE; z++) {
                     Vector3Int worldPos = World.ChunkPosToWorldPos(chunkPos, x, y, z);
-                    if( worldPos.y < 36){
-                        chunkData[x,y,z] = 2;
-                    }
-                    if( worldPos.y == 36){
-                        chunkData[x,y,z] = 1;
-                    }
+                    chunkData[x,y,z] = CreateBlockData(worldPos);
                 }
             }
         }
@@ -69,13 +79,7 @@ public class Chunk{
                         chunkData[x,y,z] = 0;
                         continue;
                     }
-
-                    if( worldPos.y < 36){
-                        chunkData[x,y,z] = 2;
-                    }
-                    if( worldPos.y == 36){
-                        chunkData[x,y,z] = 1;
-                    }
+                    chunkData[x,y,z] = CreateBlockData(worldPos);
                 }
             }
         }
@@ -99,6 +103,7 @@ public class Chunk{
         meshCollider.sharedMesh = mesh;
     }
     void GenerateMesh(List<Vector3> vertices, List<int> triangles, List<Vector2> uvs){
+        // TODO: greedy meshing??? 
         for (int x = 0; x < chunkData.GetLength(0); x++)
         {
             for (int y = 0; y < chunkData.GetLength(1); y++)
@@ -162,28 +167,31 @@ public class Chunk{
         vertices.AddRange(faceVertices);
 
         // Add the two triangles that make up the face
-        triangles.Add(vertexIndex);
-        triangles.Add(vertexIndex + 2);
-        triangles.Add(vertexIndex + 1);
-        triangles.Add(vertexIndex);
-        triangles.Add(vertexIndex + 3);
-        triangles.Add(vertexIndex + 2);
-        triangles.Add(vertexIndex);
-        triangles.Add(vertexIndex + 1);
-        triangles.Add(vertexIndex + 2);
-        triangles.Add(vertexIndex);
-        triangles.Add(vertexIndex + 2);
-        triangles.Add(vertexIndex + 3);
+        if( direction == Vector3.back ||
+            direction == Vector3.right ||
+            direction == Vector3.up ){
+            triangles.Add(vertexIndex);
+            triangles.Add(vertexIndex + 2);
+            triangles.Add(vertexIndex + 1);
+            triangles.Add(vertexIndex);
+            triangles.Add(vertexIndex + 3);
+            triangles.Add(vertexIndex + 2);
+        } else { 
+            triangles.Add(vertexIndex);
+            triangles.Add(vertexIndex + 1);
+            triangles.Add(vertexIndex + 2);
+            triangles.Add(vertexIndex);
+            triangles.Add(vertexIndex + 2);
+            triangles.Add(vertexIndex + 3);
+        }
 
-        AddUVs(blockId, uvs);
+        AddUVs(blockId, direction, uvs);
     }
 
-    void AddUVs(int blockId, List<Vector2> uvs)
+    void AddUVs(int blockId, Vector3 direction, List<Vector2> uvs)
     {
-        // TODO: Multiple faces/directions per block
         // TODO: Rework access of blockToTexture (global dictionary?)
-
-        int blockTextureIndex = world.manager.blockToTexture[blockId];
+        int blockTextureIndex = world.manager.blockToTexture[blockId].GetTexture(direction);
         // Texture atlas dimensions
         float atlasWidth = 1024f;
         float atlasHeight = 512;
@@ -220,18 +228,34 @@ public class Chunk{
     }*/
 
     
-    public int GetAbsolutePos(Vector3Int worldPos){
+    public int GetBlockAbsolute(Vector3Int worldPos){
         Vector3Int relativePos = worldPos - new Vector3Int(chunkPos.x, chunkPos.y, chunkPos.z) * CHUNKSIZE;
         if (relativePos.x < 0 || relativePos.x >= CHUNKSIZE ||
             relativePos.y < 0 || relativePos.y >= CHUNKSIZE ||
             relativePos.z < 0 || relativePos.z >= CHUNKSIZE){
-                throw new ArgumentException("getAbsolutePos called with position outside chunk: " + worldPos + "in chunk " + chunkPos);
+                throw new ArgumentException("GetAbsolutePos called with position outside chunk: " + worldPos + "in chunk " + chunkPos);
             }
         
-        return GetPos(relativePos);
+        return GetBlock(relativePos);
     }
 
-    public int GetPos(Vector3Int relativePos){
+    public int GetBlock(Vector3Int relativePos){
         return chunkData[relativePos.x, relativePos.y, relativePos.z];
+    }
+
+    public bool SetBlockAbsolute(Vector3Int worldPos, int blockId){
+        Vector3Int relativePos = worldPos - new Vector3Int(chunkPos.x, chunkPos.y, chunkPos.z) * CHUNKSIZE;
+        if (relativePos.x < 0 || relativePos.x >= CHUNKSIZE ||
+            relativePos.y < 0 || relativePos.y >= CHUNKSIZE ||
+            relativePos.z < 0 || relativePos.z >= CHUNKSIZE){
+                throw new ArgumentException("SetBlockAbsolute called with position outside chunk: " + worldPos + "in chunk " + chunkPos);
+            }
+        
+        return SetBlock(relativePos, blockId);
+    }
+
+    public bool SetBlock(Vector3Int relativePos, int blockId){
+        chunkData[relativePos.x, relativePos.y, relativePos.z] = blockId;
+        return true;
     }
 }
